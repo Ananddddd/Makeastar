@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elegant 3D Glowing Star</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, #f0f0f0 0%, #e0e0e0 100%); /* Default subtle gradient background */
+            transition: background 0.5s ease;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+
+        #star-container {
+            width: 100%;
+            height: 100%;
+        }
+
+        .controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 10;
+        }
+
+        .controls label {
+            color: #333;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .controls input[type="color"] {
+            width: 50px;
+            height: 50px;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <label for="starColor">Star Color:</label>
+        <input type="color" id="starColor" value="#FFD700"> <!-- Default gold -->
+        
+        <label for="bgColor">Background Color:</label>
+        <input type="color" id="bgColor" value="#f0f0f0"> <!-- Default light gray -->
+    </div>
+
+    <div id="star-container"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://threejs.org/examples/js/loaders/FontLoader.js"></script>
+    <script>
+        const starColorPicker = document.getElementById('starColor');
+        const bgColorPicker = document.getElementById('bgColor');
+        const container = document.getElementById('star-container');
+        const body = document.body;
+
+        // Scene, Camera, Renderer
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 5;
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio); // Ultra-HD support
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        // Create 3D Six-Pointed Star Geometry (Smooth Extrusion, No Faceting)
+        const starShape = new THREE.Shape();
+        const outerRadius = 1;
+        const innerRadius = 0.4;
+        const spikes = 6; // Six points
+        for (let i = 0; i < spikes * 2; i++) {
+            const angle = (i * Math.PI) / spikes;
+            const radius = i % 2 === 0 ? outerRadius : innerRadius;
+            const x = Math.cos(angle) * radius;
+            const y = Math.sin(angle) * radius;
+            if (i === 0) starShape.moveTo(x, y);
+            else starShape.lineTo(x, y);
+        }
+        starShape.closePath();
+
+        // Smooth extrusion: No beveling for clean, non-faceted look
+        const extrudeSettings = {
+            depth: 0.2,
+            bevelEnabled: false, // No faceting
+            curveSegments: 12,
+            steps: 1
+        };
+        const starGeometry = new THREE.ExtrudeGeometry(starShape, extrudeSettings);
+
+        // Material: Metallic with glow
+        const starMaterial = new THREE.MeshStandardMaterial({
+            color: 0xFFD700, // Default gold
+            metalness: 0.9,
+            roughness: 0.1,
+            emissive: 0xFFD700,
+            emissiveIntensity: 0.2, // Soft glow
+        });
+
+        const star = new THREE.Mesh(starGeometry, starMaterial);
+        star.castShadow = true;
+        star.receiveShadow = true;
+        scene.add(star);
+
+        // Add Blinking Uppercase Text on Top
+        const fontLoader = new THREE.FontLoader();
+        fontLoader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', (font) => {
+            const textGeometry = new THREE.TextGeometry('MERRY CHRISTMAS AND HAPPY NEW YEAR', {
+                font: font,
+                size: 0.08,
+                height: 0.02,
+                curveSegments: 12,
+                bevelEnabled: true,
+                bevelThickness: 0.005,
+                bevelSize: 0.005,
+                bevelSegments: 3
+            });
+            const textMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 }); // Start with red
+            const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+            textMesh.position.set(-1.5, 1.5, 0);
+            scene.add(textMesh);
+
+            // Blinking colors array
+            const colors = [0xff0000, 0x00ff00, 0xffd700, 0x0000ff]; // Red, Green, Gold, Blue
+            let colorIndex = 0;
+            let blinkTimer = 0;
+
+            // Update text blinking in animate loop
+            const originalAnimate = () => {
+                requestAnimationFrame(originalAnimate);
+                star.rotation.y += 0.01;
+                star.rotation.x += 0.005;
+
+                // Blinking logic
+                blinkTimer += 0.02;
+                if (blinkTimer >= 1) {
+                    blinkTimer = 0;
+                    colorIndex = (colorIndex + 1) % colors.length;
+                    textMaterial.color.setHex(colors[colorIndex]);
+                }
+
+                renderer.render(scene, camera);
+            };
+            originalAnimate();
+        });
+
+        // Lighting: Cinematic setup
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        directionalLight.position.set(5, 5, 5);
+        directionalLight.castShadow = true;
+        scene.add(directionalLight);
+
+        const pointLight = new THREE.PointLight(0xFFD700, 1, 100);
+        pointLight.position.set(0, 0, 2);
+        scene.add(pointLight);
+
+        // Resize handler
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Update star color
+        function updateStarColor(color) {
+            starMaterial.color.set(color);
+            starMaterial.emissive.set(color);
+            pointLight.color.set(color);
+        }
+
+        // Update background
+        function updateBgColor(color) {
+            const lighter = lightenColor(color, 10);
+            body.style.background = `linear-gradient(135deg, ${lighter} 0%, ${color} 100%)`;
+        }
+
+        // Helper: Lighten color
+        function lightenColor(color, percent) {
+            const num = parseInt(color.replace("#", ""), 16);
+            const amt = Math.round(2.55 * percent);
+            const R = (num >> 16) + amt;
+            const G = (num >> 8 & 0x00FF) + amt;
+            const B = (num & 0x0000FF) + amt;
+            return "#" + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
+                (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
+                (B < 255 ? B < 1 ? 0 : B : 255)).toString(16).slice(1);
+        }
+
+        // Event listeners
+        starColorPicker.addEventListener('input', (e) => updateStarColor(e.target.value));
+        bgColorPicker.addEventListener('input', (e) => updateBgColor(e.target.value));
+
+        // Initialize
+        updateStarColor(starColorPicker.value);
+        updateBgColor(bgColorPicker.value);
+    </script>
+</body>
+</html>
